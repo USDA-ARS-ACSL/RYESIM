@@ -192,7 +192,7 @@ echo f | xcopy /y "$(TargetPath)" "D:\RyeSim0.2"</Command>
     <PostBuildEvent>
       <Command>echo f | xcopy /y "$(TargetPath)" "$(SolutionDir)Soil Source\$(Platform)\$(Configuration)\$(TargetFileName)"
 echo f | xcopy /y "$(OutDirFullPath)$(TargetName).Lib" "$(SolutionDir)Soil Source\$(Platform)\$(Configuration)\$(TargetName).lib"
-echo f | xcopy /y "$(TargetPath)" "D:\RyeSim0.2"</Command>
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
