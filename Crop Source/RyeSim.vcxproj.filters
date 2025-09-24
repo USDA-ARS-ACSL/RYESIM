@@ -22,7 +22,7 @@
     <ClCompile Include="radtrans.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Gas_Ex_Species_param.cpp">
+    <ClCompile Include="Gas_Ex_Species_Param.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="solar.cpp">
@@ -81,7 +81,7 @@
     <ClInclude Include="weather.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Gas_Ex_Species_param.h">
+    <ClInclude Include="Gas_Ex_Species_Param.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="solar.h">

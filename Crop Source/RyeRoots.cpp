@@ -4,7 +4,6 @@
 #include "initinfo.h"
 #include <cmath>
 #include <algorithm>
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 #define MAXLEAFNUM 20
 #define PHYLLOCHRON 106.0

@@ -9,7 +9,9 @@ class RyeInterNode
 {
 public:
 //Z take current leaf rank and total leaf number to calculate potentialArea
-	RyeInterNode(int rank, int order, bool mainstem, RyeDevelopment* dv, double livingFrac); 
+	RyeInterNode(int rank, int order, bool mainstem, RyeDevelopment* dv, double livingFrac);
+	// new overloaded constructor to pass seedMass
+	RyeInterNode(int rank, int order, bool mainstem, RyeDevelopment* dv, double livingFrac, double seedMass);
 	~RyeInterNode();
 	void RyeInterNodeLengthUpdate(void);
 	void RyeInterNodeMassUpdate(double biomassIncomeRate, double nitrogenIncomeRate);
@@ -98,6 +100,7 @@ private:
 	double IntrMassIncrease;		//Z biomass assigned to this internode in g
 	double ptnIntrMassIncrease;
 	double DeadIntrMass;			//Z dead internode mass in g
+	double seedMass;                //mass of seed to obtain weight of first tiller
 
 
 	//Z Internode Nitrogen (mg)

@@ -24,7 +24,7 @@
 // Other global definitions go here
 
 double p_VMAX,
-PopSlab,
+PopSlab, ActualPopSlab_prev,
 Trel,            // relative time since emergence
 Period,          // one hour of time
 Emergence;       // Day of year plant emerged
@@ -90,7 +90,7 @@ struct ShootCommon {
 		OsmFac, EOMult, LeafWP, NDemandError, CumulativeNDemandError,
 		TotalRootWeight, InitialRootCarbo,
 		ConstI[2], constK[2], Cmin0[2];
-	int isGerminated, isEmerged;
+	int isGerminatedStart, isGerminatedEnd, isEmergeStart, isEmergeEnd;
 	double PlantLivingFraction;
 };
 // DT Made IR float (from int) 

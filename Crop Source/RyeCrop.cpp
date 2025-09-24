@@ -86,6 +86,7 @@ void crop(struct
 		initInfo.endDay = time_public->endDay;
 		initInfo.timeStep = time_public->TimeStep; //unit in minute
 		time_public->iTime = 1;
+		ActualPopSlab_prev = 0;
 		//Z to assign seed depth, should first know the y coordinate of the soil surface
 		double maxY = 0.0;
 		int GridNodeNum = grid_public->NumNP;
@@ -107,7 +108,7 @@ void crop(struct
 		SHOOTR->HourlyCarboUsed = 0;  //it is also zero'd upon initialization in 2dsoil
 		Period = time_public->TimeStep / 60.0 / 24.0; // period should be in days, input in minutes
 		PopSlab = SHOOTR->PopRow / 100.0 * SHOOTR->EOMult;
-		SHOOTR->isEmerged = 0;
+		SHOOTR->isEmergeStart = 0;
 		/*These two lines show the relationships among some of the space variables.
 			  --PopSlab=SHOOTR->PopRow/100*SHOOTR->RowSp*SHOOTR->EOMult;
 			  --PlantDensity=SHOOTR->PopRow*100.0/SHOOTR->RowSp;
@@ -131,6 +132,8 @@ void crop(struct
 
 		SHOOTR->NDemandError = 0;
 		SHOOTR->CumulativeNDemandError = 0;
+		SHOOTR->isGerminatedStart = 0;
+		SHOOTR->isGerminatedEnd = 0;
 		time_public->RunFlag = 1;
 		time_public->tNext[ModNum - 1] = pSC->get_sowingDay();
 	}
@@ -149,7 +152,7 @@ void crop(struct
 
 		//Z Cumulative N (mass, g (plant slab)-1) in this time step
 		//  SIncrsink is in "ug" for uptake
-		//  we uniformly use "mg" for N mass in plant model, therefore, we have "0.001", now the N uptake is in "mg"
+		//  we uniformly use "mg" for N mass in plant model, therefore, we have "/0.001", now the N uptake is in "mg"
 		//EXCEPTION: for photosynthesis, leaf N content is "g/m^2"
 		NitrogenUptake = NitrogenUptake + SHOOTR->SIncrSink * 0.001;    
 	}
@@ -170,6 +173,8 @@ void crop(struct
 		//Z because plant (seed) density may change during germination, emergence and growth (die by any reason)
 		//  use "ActualPopSlab" as the true plant density
 		//  "plantLivingFrac" rnages 0 to 1, with default value 1
+		// when the routine is first entered, plantlivingfraction is 1 and 
+		// the defaults are at the max. maybe should represent 0 germination at first?
 		double PlantLivingFraction = pSC->get_plant()->get_plantLivingFrac();
 		double ActualPopSlab = __min(1.0, PopSlab * PlantLivingFraction);
 		double ActualPlantDensity = __max(1.0, initInfo.plantDensity * PlantLivingFraction);
@@ -231,6 +236,7 @@ void crop(struct
 			//  (g plant^-1 hour^-1) = (g per slab per day^-1 ) / (plant per slab) / (24 hour day^-1)
 			wthr.pcrl = SHOOTR->PCRL / ActualPopSlab / 24.0;
 			wthr.pcrq = SHOOTR->PCRQ / ActualPopSlab / 24.0;
+			//cout << wthr.time << "  PCRL:" << wthr.pcrl << "   PCRQ:" << wthr.pcrq << endl;
 
 			// pass actual carbohydrate amount used in root (@DSOIL) back to the plant
 							//ToDo - make pcrs a new variable (ActualRootCarboUsed) and make it a member of plant.
@@ -240,6 +246,7 @@ void crop(struct
 							//ToDo: need to document this better, what is pcrs being used for.
 			//Z the 1 hour time integration is done in soil module
 			wthr.pcrs = SHOOTR->HourlyCarboUsed / ActualPopSlab;
+			//cout << "PCRL:" << wthr.pcrl << "  PCRS:" << wthr.pcrs << endl;
 			SHOOTR->HourlyCarboUsed = 0.0;
 
 			//YY If time is at 5 am, then pass the leaf water potential (the predawn leaf water potential) from SHOOTR to the wthr object. 
@@ -360,7 +367,7 @@ void crop(struct
 		//  prepare some variables that return to 2DSOIL via the defined structures
 		//  Assumes that germination takes place about halfway through the sowing date
 		
-		if (!pSC->get_plant()->get_develop()->is_germination())
+		if (!pSC->get_plant()->get_develop()->is_germinationEnd() && (pSC->get_plant()->get_develop()->is_germinationStart()))
 		{
 			if (wthr.time >= 0.49 && wthr.time <= 0.51)
 			{
@@ -370,26 +377,45 @@ void crop(struct
 		// The remaining groups of code handle carbon and nitrogen exchange between 2dsoil and maizsim
 		//Z germination finished but not emerge yet
 		//  begin root growth at germination
-		if ((pSC->get_plant()->get_develop()->is_germinInit()) && (!pSC->get_plant()->get_develop()->is_emerge()))
+		//cout << " actual pop slab: " << ActualPopSlab << endl;
+		if (pSC->get_plant()->get_develop()->is_germinationStart())
 		{
 			//Z root carbon pools are stored in plant
 			//  root mass that send to 2DSOIL is the real root mass
-			if (!SHOOTR->isGerminated)
+			// need to know germination boundaries in 2dsoil so we can
+			// increase root mass as more seeds germinate
+			if (!SHOOTR->isGerminatedStart)
 			{
-				SHOOTR->isGerminated = 1;
+				SHOOTR->isGerminatedStart = 1;
 				// get initial root mass to distribute over initial nodes
 				// 2DSOIL computes based on slab while corp model computes based on plant
 				SHOOTR->InitialRootCarbo = pSC->get_plant()->get_rootMass() * ActualPopSlab; 
+				pSC->get_plant()->add_BiomassRootAllocationDuringGermination(SHOOTR->InitialRootCarbo);
+			}
+			if (!SHOOTR->isEmergeEnd)
+			{
+				if (pSC->get_plant()->get_develop()->is_emergenceEnd())
+				{
+					SHOOTR->isEmergeEnd = 1;
+					cout << "emergence ended" << endl;
+				}
+				
+				SHOOTR->InitialRootCarbo = pSC->get_plant()->get_rootMass() * (ActualPopSlab-ActualPopSlab_prev);
+				pSC->get_plant()->add_BiomassRootAllocationDuringGermination(SHOOTR->InitialRootCarbo);
+				double rm = pSC->get_plant()->get_rootMass();
+				//cout << SHOOTR->InitialRootCarbo <<" " <<(ActualPopSlab-ActualPopSlab_prev) << " " << pSC->get_plant()->get_BiomassRootAllocationDuringGermination() <<
+				//	" " << SHOOTR->TotalRootWeight << endl;
+				ActualPopSlab_prev = ActualPopSlab;
 			}
 		}
 		// pass appropriate data to 2DSOIL file structures 
 		//Z this can be done by assigning values to the predefined structures
-		if (pSC->get_plant()->get_develop()->is_emerge())
+		if (pSC->get_plant()->get_develop()->is_emergenceStart())
 		{
-			if (!SHOOTR->isEmerged)
+			if (!SHOOTR->isEmergeStart)
 			{
 				cout << "Emerging:" << wthr.jday << endl;
-				SHOOTR->isEmerged = 1;
+				SHOOTR->isEmergeStart = 1;
 			}
 			// ActualCarboIncrement is calculated from "assimilate", which in turn is calculated from photosynthsis_net in plant;
 			// the unit of assimilate then is in g/plant/hour, thus, at this point, pcrl has unit g/plant/hour
@@ -433,7 +459,7 @@ void crop(struct
 			//Z if shoot weight < 100.0, N% = max allowed N%, i.e., no N stress
 			//  if shoot weight > 100.0, will be N rate issue.
 			double NitrogenRatio;     
-			if (shoot_weightPerM2 < 100.0)
+			if (shoot_weightPerM2 < 10.0)
 			{
 				NitrogenRatio = N_min / 100.0; //when shoot weight is lower than 100 g m-2, then nitrogen concentration is assumed to by .0410 g/g
 			}
@@ -460,13 +486,13 @@ void crop(struct
 			//   however, the unit of massIncrease is g/step. Here in the simulation, 
 			//   the default length of one step is an hour; so, we have to scale it up to one day by multiplying it by 24
 			//
-			if (shoot_weightPerM2 < 100) //if shoot weight<100 (g m-2) then U_P is calculated this way 
+			if (shoot_weightPerM2 < 10) //if shoot weight<100 (g m-2) then U_P is calculated this way 
 			{
-				U_P = (N_min / 100.0) * massIncrease * 24.0; // U_P potential rate of N accumulation (g N m-2 ground d-1) (Lindquist et al. 2007)
+				U_P = (N_min / 100.0) * massIncrease; // U_P potential rate of N accumulation (g N m-2 ground d-1) (Lindquist et al. 2007)
 			}
 			else //otherwise, it is calculated like this (Equation 6, Lindquist et al., 2007) YY
 			{
-				U_P = ((1.0 - N_shape) * N_min * 10.0 / 100.0) * pow(shoot_weightPerM2, -N_shape) * massIncrease * 24;
+				U_P = ((1.0 - N_shape) * N_min / 10.0) * pow(shoot_weightPerM2, -N_shape) * massIncrease;
 			}
 			
 			//YY U_D U uptake rate (g N m-2 d-1) as limited by the difference between potential and actual amount of N in existing biomass, equation 3 in Lindquist et al. 2007)
@@ -477,16 +503,16 @@ void crop(struct
 
 			// set up accounting of N here.
 			// first hourly//Actual and needed N uptake in the last hour per plant per day
-			double HourlyActualNFromSoil = (NitrogenUptake - NitrogenUptakeOld) / ActualPopSlab; //houly rate per day
-			double HourlyNitrogenDemand = __max(U_P, 0.0) / ActualPlantDensity / 24.0; //Determine the nitrogen demand (equation 1 Lindquist et al. 2007) in grams plant-1
-			pSC->get_plant()->set_HourlyNitrogenSoilUptake(HourlyActualNFromSoil);
+			double HourlyActualNFromSoil = (NitrogenUptake - NitrogenUptakeOld) / ActualPopSlab; //houly rate per hour
+			double HourlyNitrogenDemand = __max(U_P, 0.0); // ActualPlantDensity / 24.0; //Determine the hourly nitrogen demand (equation 1 Lindquist et al. 2007) in grams plant-1
+ 			pSC->get_plant()->set_HourlyNitrogenSoilUptake(HourlyActualNFromSoil);
 			pSC->get_plant()->set_HourlyNitrogenDemand(HourlyNitrogenDemand);
 
-			// cout << HourlyActualNFromSoil << '\n';
+			//cout << "N_fromSoil:"<<HourlyActualNFromSoil << " Demand:" << HourlyNitrogenDemand << '\n';
 
 			// now do cumulative amounts
-			CumulativeNitrogenDemand += HourlyNitrogenDemand; // grams N plant-1 day-1
-			pSC->get_plant()->set_CumulativeNitrogenDemand(CumulativeNitrogenDemand); //g N plant day-1  
+			CumulativeNitrogenDemand += HourlyNitrogenDemand; // grams N plant-1 hour-1
+			pSC->get_plant()->set_CumulativeNitrogenDemand(CumulativeNitrogenDemand); //g N plant hour-1  
 			pSC->get_plant()->set_CumulativeNitrogenSoilUptake(NitrogenUptake / ActualPopSlab);
 
 

@@ -10,9 +10,11 @@
 #include "timer.h"
 #include "RyeDevelopment.h"
 #include "RyePlant.h"
+#include "RyeLeaf.h"
+#include "RyeTiller.h"
 #include "weather.h"
 #include "initinfo.h"
-#include "gas_ex_species_param.h"
+#include "Gas_Ex_Species_Param.h"
 #ifndef FLOAT_EQ
 #define EPSILON 0.001   // floating point comparison tolerance
 #define FLOAT_EQ(x,v) (((v - EPSILON) < x) && (x <( v + EPSILON)))
@@ -57,12 +59,12 @@ private:
 	char varietyFile[256];
 	//Z OUTPUT, name of the crop output file as g01
 	char cropFile[256];
-	//Z OUTPUT, name of the debug file
-	char DebugFile[256];
 	//Z OUTPUT, name of the leaf output file
 	char LeafFile[256];
 	char outputFile[133];
 	char logFile[256];
+//Z OUTPUT, name of the debug file
+	std::string DebugFile;
 
 	//Z current record number, used to index weather files
 	int iCur;

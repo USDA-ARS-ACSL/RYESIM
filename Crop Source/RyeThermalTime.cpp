@@ -5,7 +5,6 @@
 #include <iostream>
 using namespace std;
 
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 
 RyeThermalTime::RyeThermalTime(void)

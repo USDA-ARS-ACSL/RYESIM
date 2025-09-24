@@ -4,14 +4,13 @@
 #include "initinfo.h"
 #include <cmath>
 #include <algorithm>
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 #define MAXLEAFNUM 20
 #define PHYLLOCHRON 106.0
 #define PLANTHEIGHT 1.20	   // 	
 #define DEFAULTINTRLENGTH 0.1  // 0.1 cm for the max internode length without elongation
-#define MAX_N_PCT 4.0
-#define MIN_N_PCT 0.5
+#define MAX_N_PCT 3.5
+#define MIN_N_PCT 0.35
 
 RyeInterNode::RyeInterNode(int n, int o, bool m, RyeDevelopment* dv, double IntrLivingFrac)
 {
@@ -106,7 +105,14 @@ RyeInterNode::RyeInterNode(int n, int o, bool m, RyeDevelopment* dv, double Intr
 	ptnIntrMassIncrease_Rep = 0.0;
 	ptnIntrNitrogenMassIncrease_Rep = 0.0;
 }
+// overload to transfer seed mass for the first tiller
+RyeInterNode::RyeInterNode(int n, int o, bool m, RyeDevelopment* dv, double IntrLivingFrac, double seedMass)
+      : RyeInterNode(n, o, m, dv, IntrLivingFrac)
+{
+	this->seedMass = seedMass;
+	IntrMass = 0.05 * seedMass;
 
+}
 //Z internode will likely not die
 //  even dead, from the programming prespective, death does not means the objective is deleted
 //  no memory allocation need to be released at this step
@@ -135,21 +141,23 @@ void RyeInterNode::RyeInterNodeLengthUpdate(void)
 	}
 
 	if (develop->is_singleRidge() && (!is_singleRidge)) {
-		if (develop->get_ColdTime() < 5.0)
-		{
-			relative_growth = 0.01;
-			stl = 0.005;
+		if (develop->get_ColdTime() < 16.0) {   //30.0
+			relative_growth = 1.0;  //EJ
 		}
-		else if (develop->get_ColdTime() < 30.0) {
-			relative_growth = 0.8;
+		else if (develop->get_ColdTime() < 25.0) {   //30.0
+			relative_growth = 2.3;  //EJ
 		}
 		else if (develop->get_ColdTime() < 50.0) {
-			relative_growth = 2.0;
+			relative_growth = 2.3; 
 		}
-		else {}
+		else {
+			relative_growth = 1.0;
+		}
 		is_singleRidge = true;
 	}
-
+	if (!develop->is_singleRidge()) {
+		relative_growth = 1.4;
+	}
 	// ----------------------
 	//Z the next function adjust the living fractions
 	//  if livingFrac<livingFrac_old based on stress, then put "livingFrac_old-livingfrac" to die
@@ -194,9 +202,11 @@ void RyeInterNode::IntrLengthEnlongation()
 				double CriticalNitrogen;
 				CriticalNitrogen = __max(MIN_N_PCT, IntrNitrogenContent);
 				double N_effect = __max(0.0, (2.0 / (1.0 + exp(-2.9 * (CriticalNitrogen - MIN_N_PCT))) - 1.0));
+				//N_effect = 1.0;
 				N_effect = __min(1.0, N_effect);
 				N_effect = __max(0.1, N_effect);
-				N_effect = __max(0.6, sqrt(N_effect));
+				N_effect = __max(0.2, sqrt(N_effect));
+				//cout << "Internode: " <<N_effect << endl;
 
 				//Z water potential argument (%mass)
 				double water_effect = develop->get_intrnodeWaterEffectGrowth();

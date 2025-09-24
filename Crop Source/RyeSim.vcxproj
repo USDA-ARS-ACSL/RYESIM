@@ -29,6 +29,11 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E8E56F99-943A-4226-A0C8-24FF6419EAED}</ProjectGuid>
     <RootNamespace>Crop</RootNamespace>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccProvider>SAK</SccProvider>
+    <Keyword>Win32Proj</Keyword>
+    <SccAuxPath>SAK</SccAuxPath>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>RyeSim</ProjectName>
   </PropertyGroup>
@@ -192,7 +197,7 @@ echo f | xcopy /y "$(TargetPath)" "D:\RyeSim0.2"</Command>
     <PostBuildEvent>
       <Command>echo f | xcopy /y "$(TargetPath)" "$(SolutionDir)Soil Source\$(Platform)\$(Configuration)\$(TargetFileName)"
 echo f | xcopy /y "$(OutDirFullPath)$(TargetName).Lib" "$(SolutionDir)Soil Source\$(Platform)\$(Configuration)\$(TargetName).lib"
-</Command>
+echo f | xcopy /y "$(TargetPath)" "D:\RyeSim0.2"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -306,7 +311,7 @@ echo f | xcopy /y "$(TargetPath)" "$(userProfile)\Classim_dev\"</Command>
   <ItemGroup>
     <ClCompile Include="cpmdate.cpp" />
     <ClCompile Include="gas_exchange.cpp" />
-    <ClCompile Include="Gas_Ex_Species_param.cpp" />
+    <ClCompile Include="Gas_Ex_Species_Param.cpp" />
     <ClCompile Include="initinfo.cpp" />
     <ClCompile Include="radtrans.cpp" />
     <ClCompile Include="RyeController.cpp" />
@@ -326,7 +331,7 @@ echo f | xcopy /y "$(TargetPath)" "$(userProfile)\Classim_dev\"</Command>
   <ItemGroup>
     <ClInclude Include="cpmdate.h" />
     <ClInclude Include="gas_exchange.h" />
-    <ClInclude Include="Gas_Ex_Species_param.h" />
+    <ClInclude Include="Gas_Ex_Species_Param.h" />
     <ClInclude Include="initinfo.h" />
     <ClInclude Include="radtrans.h" />
     <ClInclude Include="RyeController.h" />

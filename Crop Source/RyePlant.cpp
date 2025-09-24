@@ -9,15 +9,14 @@
 #include <sstream>
 #include <iomanip>
 
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 #define CO2_MW 44.0098
 #define C_MW 12.011
 #define CH2O_MW 30.03
 #define MAXLEAFNUM 20
-#define MAX_N_PCT 4.0
-#define MIN_N_PCT 0.5
-#define MAX_N_PCT_ROOT 1.5
+#define MAX_N_PCT 3.5
+#define MIN_N_PCT 0.35
+#define MAX_N_PCT_ROOT 0.001
 #define cPFD 4.60
 
 using namespace std;
@@ -36,6 +35,7 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	//Z initialize leaf number, area, mass
 	//  by default, this will be representative numbers, rather than "one single plant" number
 	//  length in cm, area in cm^2, biomass in g, nitrogen mass in mg
+	// note that mainstem is a tiller object, and it has its own leaf and internode
 	LeafNumPlt = 0.0;
 	GreenLfNumPlt = 0.0;
 	DropLfNumPt = 0.0;
@@ -46,6 +46,7 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	GreenLfWidthPlt = 0.0;
 	SenescentLfAreaPlt = 0.0;
 	DropLfAreaPlt = 0.0;
+	LAI = 0.0;
 
 	LeafMassPlt = 0.0;
 	SheathMassPlt = 0.0;
@@ -87,6 +88,7 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	SeedMass = 0.04; // g seed^-1
 	SeedNitrogenMass = SeedMass * MAX_N_PCT * 10.0; // total weight of N per seed (mg N seed^-1, aka, mg N plant^-1)
 	//  mass partitioning to plant organs
+
 	shootPart = 0.60;
 	rootPart = 0.40;
 	shootPart_old = 0.0;
@@ -100,6 +102,8 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	LeafMassPlt = leafPart * ShootMass;
 	IntrNodeMassPlt = internodePart * ShootMass;
 	NitrogenMassPlt = SeedNitrogenMass; // total weight of N per seed (mg N seed^-1, aka, mg N plant^-1)
+	BiomassRootAllocationDuringGermination =0.0;
+
 
 	//Z initialize root mass, actual root growth and hence the N demand
 	//  root biomass allocation has its own rule, 
@@ -126,7 +130,7 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	//Z we start the plant by initialize the first tiller, aka the mainstem
 	//  the initial living fraction of the mainstem MUST be 1.0
 	//Z the mainstem does not have "rank" and its order is 0, hence its cumuRank is also 0;
-	mainstem = new RyeTiller(0, 0, 0, true, develop, 1.0);
+	mainstem = new RyeTiller(0, 0, 0, true, develop, 1.0, SeedMass);
 
 	photosynthesis_net = 0.0;
 	photosynthesis_gross = 0.0;
@@ -147,7 +151,7 @@ RyePlant::RyePlant(const TInitInfo& info, TGasExSpeciesParam& photoparam)
 	BiomassSupply = 0.0;
 	BiomassDemand = 0.0;
 	BiomassLeftover = 0.0;
-	BiomassRoot = 0.00001;
+	BiomassRoot = RootMass;
 	BiomassLeafGrowth_ptn = 0.0;
 	BiomassIntrNodeGrowth_ptn = 0.0;
 	BiomassShootGrowth_ptn = 0.0;
@@ -196,26 +200,27 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 
 	//Z update the plant morphology
 	//Z first germination starts (not complete), just mark the time
-	//  germination start, namely "germination initiation, germinInit", should be always earlier than anything
-	if (!develop->is_germinInit())
+	//  germination start, namely "germination initiation, germinationStart", should be always earlier than anything
+	if (!develop->is_germinationStart())
 	{
 		//Z seed is not germinated yet, nothing need to be done
 		temperature = develop->get_Tcur();
 	}
 	
-	//Z germination marks 1/2 of the "active" seeds germinate, based on a germination ratio
+	//Z germination end marks 1/2 of the "active" seeds germinate, based on a germination ratio
 	//  may complete after emergence
 	//  so germination seems not that useful for plant.cpp, because in the module, we still tend to simulate one representative plant
 	//  but maybe important for output
-	if ((develop->is_germinInit()) && (!develop->is_germination()))
+	if ((develop->is_germinationStart()) && (!develop->is_germinationEnd()))
 	{
 		temperature = develop->get_Tcur();
+		//TODO might add root allocation here. As new plants germinate, add their roots.
 	}
 
 	//Z between "germination start" and "emergence start"
 	//  representative plant, start to trace
 	//  seed is the source of biomass and nitrogen
-	if ((develop->is_germinInit()) && (!develop->is_emerge()))
+	if ((develop->is_germinationStart()) && (!develop->is_emergenceStart()))
 	{
 		//Z initialize the root
 		//Z root initialization is not that critical at all
@@ -226,7 +231,14 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 		if (!roots->get_Initialization())
 		{
 			roots->set_Initialization();
-			roots->inputBiomass(RootMass);
+			roots->inputBiomass(RootMass); //ajdusted for plant population in RyeCrop when sent to 2dsoil
+			BiomassRootAllocationDuringGermination += RootMass;
+		}
+		// after roots are initialized we need to create additional roots as the seeds germinate
+		if (roots->get_Initialization())
+		{
+	        //get additional root mass from newly germinated seeds
+			//roots->inputBiomass(RootMass); //ajdusted for plant population in RyeCrop when sent to 2dsoil
 		}
 		//Z mainstem initialization, 
 		//  apsim assumes two leaves grow on the mainstem
@@ -296,18 +308,18 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 		//Z biomass allocation
 		//  in this case, biomass pools are all from seeds, so need to decrease SeedMass step by step
 		//  then set mass to the plant organs
-		calsBiomassAllocation(weather);
+		calcBiomassAllocation(weather);
 		
 		//Z nitrogen allocation
 		//  in this case, nitrogen are all from seeds, with seed N fraction (3.4%)
 		//  then set nitrogen mass to the plant organs
 		//Z Nitrogen release from seed should be propotional to the BiomassSupply based on (3.4%)
-		calsNitrogenAllocation();
+		calcNitrogenAllocation();
 
 		SeedMass = __max(0.0, SeedMass - BiomassSupply);
 		SeedNitrogenMass = __max(0.0, SeedNitrogenMass - RootNitrogenAvailiableAllocation - ShootNitrogenAvailiableAllocation);
 		
-		calsSetMass();
+		calcSetMass();
 
 		//Z sum the mass component at this time
 		//  including biomass and nitrogen mass
@@ -319,7 +331,7 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 	}
 	//Z after emergence
 	//Z need to obtain hourly root nitrogen uptake from 2DSOIL as nitrogen input
-	if ((develop->is_emerge()) && (!develop->is_dead()))
+	if ((develop->is_emergenceStart()) && (!develop->is_dead()))
 	{
 		//Z from this point, plant will grow in a "normal way" or say, on its "path"
 		//  update the temperature and then compute the R:FR ratio, which will furtherly used as a limiter for tiller number
@@ -356,7 +368,7 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 			NitrogenIntrNodeGrowth_ptn = PtnIntrNodeNitrogenMassIncreasePlt;
 			NitrogenShootGrowth_ptn = NitrogenLeafGrowth_ptn + NitrogenIntrNodeGrowth_ptn;
 		}
-		RootMass += weather.pcrs;
+		RootMass += weather.pcrs; //TODO check if we should be doing this
 		NitrogenRootGrowth_ptn = __max((RootMass * MAX_N_PCT_ROOT * 10.0 - RootNitrogenMassPlt), 0.0);
 		
 		//Z plant mass (above ground part)
@@ -399,14 +411,14 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 
 		//Z biomass partitioning between roots and shoots
 		//  then partitioning shoots part to leaf (with sheath) and internode
-		calsBiomassAllocation(weather);
+		calcBiomassAllocation(weather);
 
 		//Z nitrogen allocation
 		//  in this case, nitrogen are from plant nitrogen release and root N uptake
 		//  then set nitrogen mass to the plant organs
 		//Z at this time, biomass and nitrogen may not be allocated at a fixed ratio, 
 		//  and hence, plant organs will have 
-		calsNitrogenAllocation();
+		calcNitrogenAllocation();
 
 		//Z assign photosynthesis to the biomass pools
 		//  this comes after the biomass allocation, that means, the photosynthesis biomass will be used in the next time step
@@ -423,8 +435,10 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 			//  should be assigned to the fast/short term biomass pool
 			BiomassPool += __max(photosynthesis_gross,0.0);
 		}
-		calsSetMass();
-
+		SeedMass = __max(0.0, SeedMass - BiomassSupply);
+		SeedNitrogenMass = __max(0.0, SeedNitrogenMass - RootNitrogenAvailiableAllocation - ShootNitrogenAvailiableAllocation);
+		calcSetMass();
+		
 		//Z sum the mass component at this time
 		//  including biomass and nitrogen mass
 		//  note seed mass is changing, but the nitrogen fraction in the seed mass is a constant
@@ -432,6 +446,7 @@ void RyePlant::RyePlantUpdate(const TWeather& weather)
 		ShootMass = LeafMassPlt + SheathMassPlt + IntrNodeMassPlt;
 		NitrogenMassPlt = SeedNitrogenMass + LeafNitrogenMassPlt + SheathNitrogenMassPlt + IntrNodeNitrogenMassPlt
 			+ LeafNitrogenDeadMassPlt + SheathNitrogenDeadMassPlt + IntrNodeNitrogenDeadMassPlt+ RootNitrogenMassPlt;
+		//cout << weather.jday << " " << BiomassPool << " " << leafPart<< " " << ShootMass << endl;
 
 	}
 }
@@ -602,11 +617,12 @@ void RyePlant::calcGasExchange(const TWeather& weather, const TGasExSpeciesParam
 	//Z not all seeds germinate, not all germinated seed emerge, ......
 	//  any accident can happen, so put "initInfo.plantDensity * PlantLivingFraction" as the real plant density
 	//  10000.0 cm^2=1 m^2, which convert the plant leaf area unit from cm^2 to m^2
-	double LAI = this->GreenLfAreaPlt * __max(1.0, initInfo.plantDensity * PlantLivingFraction) / 10000.0; 
+	LAI = this->GreenLfAreaPlt * __max(1.0, initInfo.plantDensity * PlantLivingFraction) / 10000.0; 
 	
 	if ((weather.doy <= 30) || (weather.doy >= 200))
 	{
-		BiomassLeftover = 0.0;
+		BiomassLeftover = 0.0; //ignore leftover biomass in the fall and early winter -TODO -need to revisit this (DT)
+		                        // consider adding this to a crown/root pool
 	}
 	else 
 	{
@@ -631,7 +647,7 @@ void RyePlant::calcGasExchange(const TWeather& weather, const TGasExSpeciesParam
 	shaded_PFD = light->Qsh();		//Z CRadTrans object => mean photon flux density on sunshade leaves 
 	sunlit_LAI = light->LAIsl();	//Z CRadTrans object => LAI portion under sun shine
 	shaded_LAI = light->LAIsh();	//Z CRadTrans object => LAI portion under sun shade
-
+	
 	double leaf_psi = weather.LeafWP;
     //??? cauwzj test 
 	//leaf_psi = -0.05;
@@ -655,6 +671,7 @@ void RyePlant::calcGasExchange(const TWeather& weather, const TGasExSpeciesParam
 	//plantsPerMeterSquare units are umol CO2 m-2 ground s-1 ;
 	photosynthesis_gross = sunlit_A_gross * sunlit_LAI + shaded_A_gross * shaded_LAI;
 	photosynthesis_net = sunlit_A_net * sunlit_LAI + shaded_A_net * shaded_LAI;
+	//cout << photosynthesis_gross << endl;
 	
 	//when outputting the previous step transpiration is compared to the current step's water uptake
 	transpirationOld = transpiration;  
@@ -729,7 +746,7 @@ void RyePlant::calcMaintRespiration(const TWeather& wthr)
 //  then two steps, 
 //		first determine how much biomass is assigned to leaf (including sheath), internode (stem) and root
 //		second determine the biomass rates for one unit leaf area, stem length
-void RyePlant::calsBiomassAllocation(const TWeather& wthr)
+void RyePlant::calcBiomassAllocation(const TWeather& wthr)
 {
 	double BiomassReserver2PoolFrac = 0.2;	//Z during BiomassPool send mass out, BiomassReserve also wants to send 20% (refer to apsim wheat)
 	double BiomassRootReleaseFrac = 0.8;	//Z root biomass pool want to add 20% storage to root partition if biomass is sufficient
@@ -762,7 +779,7 @@ void RyePlant::calsBiomassAllocation(const TWeather& wthr)
 
 	//Z the first "if statement" handles maintrespiration
 	//  the current maintrespiration is computed in "calcMaintRespiration"
-	//  which is placed one step higher than the "calsBiomassAllocation", therefore, we can always have the current maintrespiration
+	//  which is placed one step higher than the "calcBiomassAllocation", therefore, we can always have the current maintrespiration
 	
 	//Z feed some biomass from reservior to rapid pool
 	BiomassPool += BiomassReserver2PoolFrac * __max(BiomassReserve, 0.0);
@@ -872,7 +889,8 @@ void RyePlant::calsBiomassAllocation(const TWeather& wthr)
 	//  
 	//Z may also need to put rootMassHere
 	//  then total ptn mass will be root + shoot 
-	double RootShootFractionController = __min(0.95, 0.7 + 0.3 * develop->get_TTd_Joint() / 1000.0);
+	double RootShootFractionController = __min(0.95, 0.4 + 0.35 * develop->get_TTd_Joint() / 1000.0);
+	//cout << RootShootFractionController << "  " << develop->get_doy() << "  "<< develop->get_TTd_Joint() << endl;
 	double Yg = 1.0; // synthesis efficiency
 	BiomassPltGrowth_ptn = __max(BiomassShootGrowth_ptn, 0.0) / RootShootFractionController / Yg;
 	{
@@ -920,7 +938,7 @@ void RyePlant::calsBiomassAllocation(const TWeather& wthr)
 	double shootPart_real = 0.0;
 	double rootPart_real = 0.0;
 
-	if (!develop->is_germinInit())
+	if (!develop->is_germinationStart())
 	{
 		//Z no seed germinate yet (actually < 1% seeds germinate), pass and wait for the first seed germinating
 		return;
@@ -1058,7 +1076,7 @@ void RyePlant::calsBiomassAllocation(const TWeather& wthr)
 //Z Nitrogen allocation
 //		first get the availiable nitrogen either from seeds or from plant root uptake
 //		second assign the nitrogen to plant organs
-void RyePlant::calsNitrogenAllocation()
+void RyePlant::calcNitrogenAllocation()
 {
 	//Z first determine the nitrogen quantity that can be allocated
 	//  similar to the biomass allocation
@@ -1067,13 +1085,13 @@ void RyePlant::calsNitrogenAllocation()
 	leafPartNitrogen = 0.0;
 	internodePartNitrogen = 0.0;
 
-	if (!develop->is_germinInit())
+	if (!develop->is_germinationStart())
 	{
 		return;
 	}
 	else 
 	{
-		if (!develop->is_emerge())
+		if (!develop->is_emergenceStart())
 		{
 			//Z nitrogen solely comes from seed at 3.4%
 			//  measured in mg (1000.0 converts g to mg)
@@ -1138,9 +1156,9 @@ void RyePlant::calsNitrogenAllocation()
 			}
 		}
 	}
-
+	//cout << "NPool:" << NitrogenPool << endl;
 	//Z second assign nitrogen to shoot organs
-	if (!develop->is_germinInit())
+	if (!develop->is_germinationStart())
 	{
 		return;
 	}
@@ -1161,7 +1179,7 @@ void RyePlant::calsNitrogenAllocation()
 
 //Z after allocating the biomass, set the allocated biomass "AND N"
 //  back to plant organs for the growth
-void RyePlant::calsSetMass()
+void RyePlant::calcSetMass()
 {
 	//Z first compute the assignment rate
 	//  for example, we have the potential leaf area incremental and the biomass assigned for leaves,

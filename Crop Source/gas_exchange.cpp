@@ -38,8 +38,8 @@ Kim, S.-H., R.C. Sicher, H. Bae, D.C. Gitz, J.T. Baker, D.J. Timlin, and V.R. Re
 #define O 205.0			//gas units are mbar
 #define Q10 2.0			//Q10 factor, photosynthesis activity increments for every 10 K
 #define cPFD 4.6        //conversion factor from PAR (W/m2) to PFD (umol m-2 s) for solar radiation, see Campbell and Norman (1998) p 149
-#define MAX_N_PCT 4.0
-#define MIN_N_PCT 0.5
+#define MAX_N_PCT 3.5
+#define MIN_N_PCT 0.35
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -99,7 +99,7 @@ void CGasExchange::SetVal(double PhotoFluxDensity, const TInitInfo info, double 
 	//  NIR - near infrared radiation
 	double NIR = PAR; 
 	
-	//Z leaf long wave radiaiton
+	//Z leaf long wave radiation
 	//  times 2 for projected area basis, leaf has two surfaces
 	this->R_abs = (1 - sParms.scatt) * PAR + 0.15 * NIR + 2.0 * (epsilon * sbc * pow(Tair + 273.15, 4.0));
     // shortwave radiation (PAR (=0.85) + NIR (=0.15) solar radiation absorptivity of leaves: =~ 0.5
@@ -405,7 +405,7 @@ void CGasExchange::Photosynthesis(double Ci, double psileaf, const TInitInfo inf
 	CriticalNitrogen = __max(MIN_N_PCT, lfNContent);
 	double N_effect = 2.0 / (1.0 + exp(-2.9 * (CriticalNitrogen - MIN_N_PCT))) - 1.0;
 	if (CriticalNitrogen > 1.5750 / 3.5 * MAX_N_PCT) { N_effect = 1.0; }
-	N_effect = __max(N_effect, 0.1);
+	N_effect = __max(N_effect, 0.001);
 	double Vcm25_L = sParms.Vcm25 * N_effect;
 	double Jm25_L = sParms.Jm25 * N_effect;
 	double TPU25_L = sParms.TPU25 * N_effect;
@@ -427,8 +427,8 @@ void CGasExchange::Photosynthesis(double Ci, double psileaf, const TInitInfo inf
 	TPU = f_age * TPU25_L * __max(exp(sParms.EaVp * (Tleaf - 25) / (298.15 * R * Tk)), 0.5);
 
 	//Z testing sugar effects
-	Vcmax = Vcmax * exp(-50.0 * __max(this->BiomassLeafOver - 0.15, 0.0));
-	Jmax = Jmax * exp(-50.0 * __max(this->BiomassLeafOver - 0.15, 0.0));
+	Vcmax = Vcmax * exp(-10.0 * __max(this->BiomassLeafOver - 0.15, 0.0));
+	Jmax = Jmax * exp(-10.0 * __max(this->BiomassLeafOver - 0.15, 0.0));
 
 	//assume infinite gi (stomata is sooooo conductive)
 	Cc = Ci;

@@ -8,6 +8,9 @@ class RyeLeaf
 {
 public:
 	RyeLeaf(int rank, int order, bool mainstem, RyeDevelopment* dv, double livingFrac); // take current leaf rank and total leaf number to calculate potentialArea
+	// New overloaded constructor with seedmass
+	RyeLeaf(int rank, int order, bool mainstem, RyeDevelopment* dv, double LfLivingFrac, double seedMass);
+
 	~RyeLeaf();
 	//Z IO bool functions for leaf stages
 	//  unused function are listed at the end and comment-out
@@ -178,10 +181,10 @@ private:
 	double slw_run;                 //  running value of slw;
 	double LeafMass;				//Z leaf biomass no matter it is green or not, dropped or not
 	double SheathMass;				//Z sheath biomass no matter it is green or not, dropped or not
-	double GreenLfMass;				//Z green (living) leaf mass, exclude senescent (and dropped) mass
-	double GreenSheathMass;			//Z green (living) sheath mass, exclude senescent (and dropped) mass
-	double DropLfMass;				//Z dropped leaf biomass, 0 or = leafmass depending on leaf drop or not
-	double DropSheathMass;			//Z dropped sheath biomass, 0 or = sheathmass depending on leaf drop or not
+	double GreenLfMass;				//Z green (living) leaf mass, exclude senescent (and dropped) mass g
+	double GreenSheathMass;			//Z green (living) sheath mass, exclude senescent (and dropped) mass g
+	double DropLfMass;				//Z dropped leaf biomass, 0 or = leafmass depending on leaf drop or not g
+	double DropSheathMass;			//Z dropped sheath biomass, 0 or = sheathmass depending on leaf drop or not mg zN
 	double LeafBiomassIncrease;		//Z biomass increase after plant assign biomass based on photosynthesis and the biomass request
 	double SheathBiomassIncrease;   //Z biomass increase after plant assign biomass based on photosynthesis and the biomass request
 	double ptnLfMassIncrease;		//Z potential leaf mass increase due to leaf area increase at this time step, and biomass is not fully assigned in previous steps
@@ -189,14 +192,15 @@ private:
 									//		actual leaf mass = LeafMass
 									//      potential leaf mass increase = maximum leaf mass - current leaf mass
 									//  potential sheath mass increase = 0.5 or 1.0 leaf mass increase depending on accleration
+	double seedMass;  // Seedmass to pass when intiating the first leaves
 
 	//Z Leaf Sheath Nitrogen (mg): income part
 	double LeafNitrogenContent;		//Z leaf N% fraction in % (e.g., 3.5% as the max value)
 	double SheathNitrogenContent;	//Z sheath N% fraction in % (e.g., 3.5% as the max value)
-	double LeafNitrogenMass;		//Z leaf nitorgen mass
-	double SheathNitrogenMass;		//Z sheath nitrogen mass
-	double LeafNitrogenIncrease;	//Z leaf nitrogen mass increase after nitrogen assignment 
-	double SheathNitrogenIncrease;	//Z sheath nitrogen mass increase after nitrogen assignment 
+	double LeafNitrogenMass;		//Z leaf nitrogen mass mg N
+	double SheathNitrogenMass;		//Z sheath nitrogen mass mg N
+	double LeafNitrogenIncrease;	//Z leaf nitrogen mass increase after nitrogen assignment mg N
+	double SheathNitrogenIncrease;	//Z sheath nitrogen mass increase after nitrogen assignment mg N
 	double ptnLfNitrogenMassIncrease;//Z potential leaf N mass increase due to leaf area increase at this time step, and N is not fully assigned in previous steps
 									//		maximum leaf N mass = "potential leaf area"*slw*3.5% (need unit adjustment)
 									//		actual leaf N mass = LeafMass

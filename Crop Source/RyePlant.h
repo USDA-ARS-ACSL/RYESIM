@@ -47,6 +47,8 @@ public:
 	double get_plantLivingFrac() { return PlantLivingFraction; }		//Z not all seeds are germinated or emerged, there is a fraction
 	double get_leafArea() { return LeafAreaPlt; }						//Z plant scale leaf area in cm^2
 	double get_greenLeafArea() { return GreenLfAreaPlt; }				//Z return green leaf area, leaf area = green + aged (not dropped)
+	double get_LAI() { return LAI; }
+	double get_SeedMass() { return SeedMass; }
 
 	double get_plantMass() { return RyeMass; }							//Z rye plant mass,   g/plant
 	double get_plantTotalNitrogen() { return NitrogenMassPlt; }			//Z Total N in plant, mg/plant
@@ -101,6 +103,7 @@ public:
 	double get_IntrNodeNitrogenRlease() { return IntrNodeNitrogenReleasePlt; }
 	double get_PltShootNitrogenAssignment() { return ShootNitrogenAvailiableAllocation; }
 	double get_PltRootNitrogenAssignment() { return RootNitrogenAvailiableAllocation; }
+	double get_BiomassRootAllocationDuringGermination() { return BiomassRootAllocationDuringGermination; }	//Z cumulative biomass allocated to roots during germination g/plant
 	
 
 	//cZ IO function for set
@@ -109,12 +112,13 @@ public:
 	void set_HourlyNitrogenSoilUptake(double x) { HourlyNitrogenSoilUptake = x; }
 	void set_CumulativeNitrogenSoilUptake(double x) { CumulativeNitrogenSoilUptake = x; }
 	void set_NitrogenRatio(double x) { NitrogenRatio = x; }
+	void add_BiomassRootAllocationDuringGermination(double x) { BiomassRootAllocationDuringGermination += x; }	//Z set cumulative biomass allocated to roots during germination g/plant
 
 	void calcGasExchange(const TWeather& weather, const TGasExSpeciesParam& photoparam);
 	void calcMaintRespiration(const TWeather&);
-	void calsBiomassAllocation(const TWeather&);
-	void calsNitrogenAllocation();
-	void calsSetMass();
+	void calcBiomassAllocation(const TWeather&);
+	void calcNitrogenAllocation();
+	void calcSetMass();
 	void calcRed_FRedRatio(const TWeather&);
 
 	double get_averagedBiomassLeftover() { return BiomassLeftover; }
@@ -154,6 +158,7 @@ private:
 	double GreenLfWidthPlt;
 	double SenescentLfAreaPlt;
 	double DropLfAreaPlt;			 //Z leaf area dropped must be senecent leaf, but senecent (part) of the leaf may not drop
+	double LAI; //Leaf area Index
 	
 	double LeafMassPlt;
 	double SheathMassPlt;
@@ -230,6 +235,7 @@ private:
 	double BiomassPltGrowth_ptn;			//Z potential shoot + root mass increases g per plant
 	double ActuralRootBiomassAssignment_PCRL;
 	double ActuralShootBiomassAssignment;
+	double BiomassRootAllocationDuringGermination;  // used to proportion more biomass to roots as seeds germinate. this is the cumulative amount
 
 	double NitrogenPool;					//Z nitrogen pool in mg per plant
 

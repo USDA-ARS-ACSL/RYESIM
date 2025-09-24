@@ -13,8 +13,13 @@
 class RyeTiller
 {
 public:
+public:
+	// Original constructor
 	RyeTiller(int rank, int order, int cumuRank, bool mainstem, RyeDevelopment* dv, double livingFrac);
-	~RyeTiller();
+
+	// ADD THIS: Overloaded constructor with seedMass
+	RyeTiller(int rank, int order, int cumuRank, bool mainstem, RyeDevelopment* dv, double livingFrac, double seedMass);
+    ~RyeTiller();
 	//Z update the growth of the current tiller
 	void RyeTillerSingleMorph(void);
 	void RyeTillerSingleDeath(void);
@@ -34,7 +39,7 @@ public:
 	RyeTiller* get_subtiller(int ii) { return this->SubTiller[ii]; }
 
 	//***** mainstem development *********
-	bool get_mainstemInitilization() { return mainstemInitializaiton; }
+	bool get_mainstemInitilization() { return mainstemInitialization; }
 	bool is_living() { return living; }
 	void MainstemInitialize();
 
@@ -128,8 +133,11 @@ private:
 	int LeafNum;
 	int GreenLfNum;
 	int DropLfNum;
+	double seedMass;
 	RyeLeaf* SubLeaf[MAXLEAFNUM];
-
+    public:
+    // Add this method to RyeTiller to access a leaf by index
+    RyeLeaf* get_subLeaf(int ii) { return this->SubLeaf[ii]; }
 	int rank;						//Z number of the tiller at its parent tiller (maybe mainstem) counted from bottom
 	int order;						//Z the order of tiller, 0 for mainstem, 1 for the tiller branching from the mainstem, 2 for the tiller branching from the order 1 tiller...
 	int cumuRank;					//Z rank of parent tiller + rank of this tiller, maybe better measure the distance of the tiller from root
@@ -150,7 +158,7 @@ private:
 	bool force_to_death_current_step;// marker for tiller death due to external/ambient reasons, force to die, can only be true on one step when tiller death function is called
 	
 	bool mainstem;					// if this tiller is the mainstem or not
-	bool mainstemInitializaiton;	// a special case for mainstem, immediately grow two leaves
+	bool mainstemInitialization;	// a special case for mainstem, immediately grow two leaves
 
 	bool death_2_finalize;          // a computational marker, when tiller is killed or dead, use this to update its leaf and internode for the last time
 

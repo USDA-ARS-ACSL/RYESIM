@@ -4,7 +4,7 @@
 #include "initinfo.h"
 #include <cmath>
 #include <algorithm>
-#define MINUTESPERDAY 1440.0
+#define MINUTESPERDAY (24*60)
 #define DAYPERMINUTES 0.00069444444
 #define DAYPERHOUR 0.041666666667
 #define MAXLEAFNUM 20
@@ -12,12 +12,13 @@
 #define CO2_MW 44.0098
 #define C_MW 12.011
 #define CH2O_MW 30.03
-#define MAX_N_PCT 4.0
-#define MIN_N_PCT 0.5
+#define MAX_N_PCT 3.5
+#define MIN_N_PCT 0.35
 
 using namespace std;
 
 //Z constructor, need to identify if it is the mainstem
+// ADD THIS: New overloaded constructor
 RyeTiller::RyeTiller(int n, int o, int cr, bool m, RyeDevelopment* dv, double tillerLivingFrac)
 {
 	//Z initialize the growing stage
@@ -26,7 +27,7 @@ RyeTiller::RyeTiller(int n, int o, int cr, bool m, RyeDevelopment* dv, double ti
 	cumuRank = cr;
 	mainstem = m;
 	develop = dv;
-	mainstemInitializaiton = false;	//Z a special case for mainstem, immediately grow two leaves
+	mainstemInitialization = false;	//Z a special case for mainstem, immediately grow two leaves
 	death_2_finalize = false;
 
 	//Z Growing Stage
@@ -165,7 +166,15 @@ RyeTiller::RyeTiller(int n, int o, int cr, bool m, RyeDevelopment* dv, double ti
 	cout << "Tiller Emerging: Order = " << order << ", Rank = " << rank << ", CumuRank = " << cumuRank << "\n";
   #endif
 }
-
+RyeTiller::RyeTiller(int n, int o, int cr, bool m, RyeDevelopment* dv, double tillerLivingFrac, double seedMass)
+	: RyeTiller(n, o, cr, m, dv, tillerLivingFrac)  // Delegate to original constructor
+{
+	this->seedMass = seedMass;  // Override seedMass for mainstem
+	rank = n;
+	order = o;
+	//TillerLfMass = seedMass*0.50;							//Z even dropped, leaf mass still hold the number
+	//illerGreenLfMass=TillerLfMass;					//Z tiller sum of no scenescent (or dropped) leaf mass
+}
 //Z destructor, need to be recursive
 //  in all the models, death does not mean destruction,
 //  dead organ still holds informations
@@ -217,12 +226,12 @@ void RyeTiller::MainstemInitialize()
 	//  but we still put if-statment for protection
 	if (living && (!singleRidge_kill))
 	{
-		if (mainstem && !mainstemInitializaiton)
+		if (mainstem && !mainstemInitialization)
 		{
-			mainstemInitializaiton = true;
+			mainstemInitialization = true;
 			// first 1 leaves
 			// recall parameter, index of leaf on the tiller; bool if tiller is mainstem; development obj; initial livingFrac
-			SubLeaf[0] = new RyeLeaf(1, this->order, mainstem, develop, 1.0);
+			SubLeaf[0] = new RyeLeaf(1, this->order, mainstem, develop, 1.0, seedMass);
 			LeafNum = 1;
 			GreenLfNum = 1;
 			DropLfNum = 0;
@@ -288,8 +297,10 @@ void RyeTiller::RyeTillerSingleMorph(void)
 														 initial sub-tiller livingfrac follow the tiller livingfrac
 						*/
 						double tillerStress = this->livingFrac;
-						tillerStress = __max(__min(tillerStress, sqrt(LeafStressData_W * water_effect), 1.0), 0.4);
-						tillerStress = __max(__min(tillerStress, sqrt(LeafStressData_N * N_effect), 1.0), 0.4);
+						float xx = __min(tillerStress, sqrt(LeafStressData_W * water_effect));
+						tillerStress = __max(__min(xx, 1.0), 0.4);
+						xx = __min(tillerStress, sqrt(LeafStressData_N * N_effect));
+						tillerStress = __max(__min(xx, 1.0), 0.4);
 #if _DEBUG
 						cout << LeafStressData_N << "," << LeafStressData_W << "," << tillerStress << ",";
 #endif
@@ -306,8 +317,10 @@ void RyeTiller::RyeTillerSingleMorph(void)
 														 initial sub-tiller livingfrac follow the tiller livingfrac
 						*/
 						double tillerStress = this->livingFrac;
-						tillerStress = __max(__min(tillerStress, sqrt(LeafStressData_W * water_effect), 1.0), 0.4);
-						tillerStress = __max(__min(tillerStress, sqrt(LeafStressData_N * N_effect), 1.0), 0.4);
+						float xx = __min(tillerStress, sqrt(LeafStressData_W * water_effect));
+						tillerStress = __max((__min(xx, 1.0)), 0.4);
+						xx = __min(tillerStress, sqrt(LeafStressData_N * N_effect));
+						tillerStress = __max(__min(xx, 1.0), 0.4);
 #if _DEBUG
 						cout << LeafStressData_N << "," << LeafStressData_W << "," << tillerStress << ",";
 #endif

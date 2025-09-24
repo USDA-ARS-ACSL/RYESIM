@@ -4,18 +4,20 @@
 #include "initinfo.h"
 #include <cmath>
 #include <algorithm>
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 #define MAXLEAFNUM 20
 #define PHYLLOCHRON 106.0
-#define MAX_N_PCT 4.0
-#define MIN_N_PCT 0.5
+#define MAX_N_PCT 3.5
+#define MIN_N_PCT 0.35
 
 using namespace std;
 
 RyeLeaf::RyeLeaf(int n, int o, bool m, RyeDevelopment* dv, double LfLivingFrac)
 {
 	//Z ****** set default information or initialize variables *******
+	// DT the first leaves on the mainstem that come out of the seed need to be intialized
+	// differently as they have already started growing. We will assume their leaf lenght
+	// is 30% of the maximum
 	rank = n;
 	order = o;
 	mainstem = m;
@@ -115,6 +117,7 @@ RyeLeaf::RyeLeaf(int n, int o, bool m, RyeDevelopment* dv, double LfLivingFrac)
 		(for single leaf, either attached leafmass 0 or = leafmass, since leaf is either attached or dropped)
 		(attached leafmass = green leaf mass + aged but not dropped leaf mass)
 	*/
+	seedMass = 0.0; // needed when initializing the two initial leaves
 	slw_max = slw * 1.0;
 	slw_run = slw;
 	LeafMass = LeafArea * slw;
@@ -130,7 +133,7 @@ RyeLeaf::RyeLeaf(int n, int o, bool m, RyeDevelopment* dv, double LfLivingFrac)
 	//  assume 4.0% will be the max accessible value (at no stress)
 	LeafNitrogenContent = MAX_N_PCT;								// leaf N % 
 	SheathNitrogenContent = MAX_N_PCT;								// sheath N % 
-	LeafNitrogenMass = LeafMass * LeafNitrogenContent * 10.0;		// leaf nitorgen mass, 10.0=/100.0*1000.0
+	LeafNitrogenMass = LeafMass * LeafNitrogenContent * 10.0;		// leaf nitorgen mass (mg N), 10.0=/100.0*1000.0
 	SheathNitrogenMass = SheathMass * SheathNitrogenContent * 10.0;	// sheath nitrogen mass
 	LeafNitrogenIncrease = 0.0;			// leaf nitrogen mass increase after nitrogen assignment 
 	SheathNitrogenIncrease = 0.0;		// sheath nitrogen mass increase after nitrogen assignment 
@@ -192,6 +195,29 @@ RyeLeaf::RyeLeaf(int n, int o, bool m, RyeDevelopment* dv, double LfLivingFrac)
 	ptnLfMassIncrease_Rep = 0.0;
 	ptnLfNitrogenMassIncrease_Rep = 0.0;
 }
+// New constructor implementation
+RyeLeaf::RyeLeaf(int n, int o, bool m, RyeDevelopment* dv, double LfLivingFrac, double seedMass)
+	: RyeLeaf(n, o, m, dv, LfLivingFrac)
+
+{
+	// Additional initialization specific to this constructor
+	this->seedMass = seedMass;
+	double shootmass = 0.6 * this->seedMass;
+	if (rank == 1 && mainstem == true) {
+		LeafLength = maxLfLength * 0.3;
+		LeafWidth = maxLfWidth * 0.3;
+		LeafArea = A_LW * LeafLength * LeafWidth;
+		// Recalculate dependent values
+
+		LeafMass = 0.8 * shootmass;
+		SheathMass = 0.5 * (shootmass-LeafMass);
+		GreenSheathMass = SheathMass;
+		GreenLfArea = LeafArea;
+		GreenLfMass = LeafMass;
+	}
+	// Call existing constructor logic or duplicate initialization
+	// ... existing initialization code ...
+}
 
 //Z leaf death does not means the objective is deleted
 //  drop leaf mass variable still hold values
@@ -216,6 +242,8 @@ void RyeLeaf::RyeLeafAreaUpdate()
 	N_effect = __max(0.0, (2.0 / (1.0 + exp(-2.9 * (CriticalNitrogen - MIN_N_PCT))) - 1.0));
 	N_effect = __min(1.0, N_effect);
 	N_effect = __max(0.1, N_effect);
+	//N_effect = 1.0;
+	//cout << "RyeLeaf: " << N_effect << endl;
 
 //	if (!develop->is_singleRidge()) {
 //		N_effect = __max(0.8, sqrt(N_effect));
@@ -224,26 +252,23 @@ void RyeLeaf::RyeLeafAreaUpdate()
 //		N_effect = __max(0.6, sqrt(N_effect));
 //	}
 	if (!develop->is_startEnlongation()) {
-		N_effect = __max(0.8, sqrt(N_effect));
-		N_effect = 0.8 + 0.2 * N_effect;
+		N_effect = __max(0.3, sqrt(N_effect));
+		N_effect = 0.3 + 0.7 * N_effect;
 	}
 	else
 	{
 //		N_effect = __max(0.6, sqrt(N_effect));
 	}
-
+	
 	if (develop->is_singleRidge() && (!is_singleRidge)) {
-		if (develop->get_ColdTime() < 5.0) 
-		{
-			relative_growth = 0.1;
-			slw = 0.001;
-			slw_max = 0.001;
+	    if (develop->get_ColdTime() < 16.0) {   //30.0
+			relative_growth = 1.0;  //1.8    EJ
 		}
-	    else if (develop->get_ColdTime() < 30.0) {
-			relative_growth = 0.8;
+		else if (develop->get_ColdTime() < 25.0) {   //30.0
+			relative_growth = 2.3;  //EJ
 		}
-		else if (develop->get_ColdTime() < 50.0) {
-			relative_growth = 2.0;
+		else if (develop->get_ColdTime() < 50.0) {   //EJ never reach to this point for AL sites
+			relative_growth = 2.3; // 1.8;
 		}
 		else {
 			relative_growth = 1.0;
@@ -330,6 +355,7 @@ void RyeLeaf::LeafAreaExpand()
 	if (appeared && !mature)
 	{
 		growing = true;
+		//N_effect = 1.0;
 		double limit_factor = __min(__min(__min(N_effect, water_effect_expand), __min(shade_effect, Tmpr_effect)), slw_effect);
 		limit_factor = __max(sqrt(limit_factor), 0.1);
 		double grll = maxLfLength / PHYLLOCHRON * limit_factor * relative_growth;

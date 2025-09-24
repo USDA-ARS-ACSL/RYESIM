@@ -62,9 +62,11 @@ public:
 	int get_doy() { return doy; }
 
 	//Yes-No stage functions
-	bool is_germinInit() { return germinInit.done; }	//Z if germination starts, emergence may come before germination completes.
-	bool is_germination() { return germination.done; }  //Z if germinated, yes then start root initialization
-	bool is_emerge() { return emergence.done; }			//Z if emerged, yes then start plant growth
+	bool is_germinationStart() { return germinationStart.done; }	//Z if germination starts, emergence may come before germination completes.
+	bool is_germinationEnd() { return germinationEnd.done; }  //Z if germinated, yes then start root initialization
+	bool is_emergenceStart() { return emergenceStart.done; }	//Z if emerged, yes then start plant growth
+	bool is_emergenceEnd() { return emergenceEnd.done; }	//Z if emerged, yes then start plant growth
+
 	bool is_singleRidge() { return singleRidge.done; }	//Z if single-ridge stage is reached, yes then there will be some tiller forced to die (leaf number <4)
 	bool is_startEnlongation() { return elongationStart.done; }	//Z if the elongation starts
 	bool is_accel() { return acceleration.done; }		//Z if single ridge is reached and growth acceleration occurs
@@ -85,11 +87,13 @@ private:
 	//****** GDD numbers and growing stage **************
 	double Cur_TTd;
 	//Z germination start > 0.01 (small number)
-	TEvent germinInit;
+	TEvent germinationStart;
 	//Z germination rate > 0.5, the whole germination will be 14 days and overlap the emergence time
-	TEvent germination;
+	TEvent germinationEnd;
 	//Z emergence rate > 0.01 (small number)
-	TEvent emergence;
+	TEvent emergenceStart;
+	//DT no more plants emerging
+	TEvent emergenceEnd;
 	//Z single ridge
 	TEvent singleRidge;
 	//Z elongation stage start, for the whole plant
@@ -136,7 +140,7 @@ private:
 	//Z germination rate;
 	double SeedGerminationRate;
 	//Z emergence fraction and its real (truncated) fraction to be used outside;
-	double EmergFrac, FracEmerg_Real;	
+	double EmergFrac, FracEmerg_Real, FracEmerg_Real_prev;	
 	//Z germination fraction and its real (truncated) fraction to be used outside;
 	double GerminFrac, FracGermin_Real;	
 	//Z seed number should be input, since there exist emergence fraction, so actual plant number changes;

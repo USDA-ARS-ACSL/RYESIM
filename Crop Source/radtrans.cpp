@@ -77,7 +77,7 @@ double CRadTrans::GetZenith()
 	// need to constrain zenith to not quite reach PI/2 when elevation is zero
 	// i.e., the sun is near the horizon.
 	zenith = abs(PI / 2.0 - Elev);
-	zenith = __min(zenith, 1.56);
+	zenith = min(zenith, 1.56);
 	return zenith;
 }
 

@@ -4,9 +4,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-//#using <mscorlib.dll>
 #define PHYLLOCHRON 106.0
-#define MINUTESPERDAY 1440.0
 #define DAYPERMINUTES 0.00069444444
 #define DAYPERHOUR 0.041666666667
 
@@ -31,7 +29,7 @@ RyeDevelopment::RyeDevelopment(const TInitInfo& info)
 
 	SeedGerminationRate = 0.0;
 	GerminFrac = 0.0, FracGermin_Real = 0.0;
-	EmergFrac = 0.0, FracEmerg_Real = 0.0;
+	EmergFrac = 0.0, FracEmerg_Real = 0.0; FracEmerg_Real_prev = 0.0;
 	SeedNum = info.plantDensity, GerminateSeedNum = 0, PlantNum = 0;
 	PlantTillerNumber = 1.0;
 	TTd_seed = 0.0, Cur_Germin_TTd = 0.0, Cur_Emerg_TTd = 0.0;
@@ -45,9 +43,9 @@ RyeDevelopment::RyeDevelopment(const TInitInfo& info)
 	PlantLivingFraction = 1.0;
 
 	//emercv : Coefficient of variation for emergence curves.
-	emercv = 0.20;
+	emercv = 0.15;
 	//mgerm(1:3) : Mean degree-days needed for germination for each of the three soil water condition values.
-	mgerm[0] = 80.0, mgerm[1] = 90.0, mgerm[2] = 110.0;
+	mgerm[0] = 50.0, mgerm[1] = 65.0, mgerm[2] = 80.0;
 	//melrat(1:3) : Mean elongation rate for each of the three soil water condition values (growing degree-days/cm).
 	melrat[0] = 20.0, melrat[1] = 25.0, melrat[2] = 30.0;
 	//Z seedDepth (cm) in the "info" structure, emergence gdd depends on seed depth
@@ -56,10 +54,10 @@ RyeDevelopment::RyeDevelopment(const TInitInfo& info)
 		memerg[ii] = melrat[ii] * info.seedDepth + mgerm[ii];
 		sgerm[ii] = emercv * mgerm[ii];
 		semerg[ii] = emercv * memerg[ii];
-		upcutg[ii] = mgerm[ii] + 3.0 * sgerm[ii];
-		locutg[ii] = mgerm[ii] - 3.0 * sgerm[ii];
-		upcute[ii] = memerg[ii] + 3.0 * semerg[ii];
-		locute[ii] = memerg[ii] - 3.0 * semerg[ii];
+		upcutg[ii] = mgerm[ii] + 1.5 * sgerm[ii];
+		locutg[ii] = mgerm[ii] - 1.5 * sgerm[ii];
+		upcute[ii] = memerg[ii] + 1.5 * semerg[ii];
+		locute[ii] = memerg[ii] - 1.5 * semerg[ii];
 	}
 
 	//****** Growth Stage Till Jointing **************
@@ -279,6 +277,8 @@ void RyeDevelopment::RyeDelpUpdate(const TWeather& wthr)
 			{
 				EmergFrac = 1.0;
 				FracEmerg_Real = 1.0;
+				emergenceEnd.done = 1;
+				cout << "emegence End" << endl;
 			}
 			else
 			{
@@ -293,24 +293,29 @@ void RyeDevelopment::RyeDelpUpdate(const TWeather& wthr)
 			//Z set up the germination and emergence marker
 			//Z first germination initiation/start, use a small number here, but same as the one for emergence
 			//  germination initiation must be earlier than emergence
-			if (!germinInit.done && FracGermin_Real >= 0.01)
+			if (!germinationStart.done && FracGermin_Real >= 0.01)
 			{
-				germinInit.daytime = wthr.daytime;
-				germinInit.done = true;
+				germinationStart.daytime = wthr.daytime;
+				germinationStart.done = true;
 
 			}
-			if (!germination.done && FracGermin_Real >= 0.5)
+			if (!germinationEnd.done && FracGermin_Real >= 0.5)
 			{
-				germination.daytime = wthr.daytime;
-				germination.done = true;
+				germinationEnd.daytime = wthr.daytime;
+				germinationEnd.done = true;
 
 			}
-			if (!emergence.done && FracEmerg_Real >= 0.01)
+			if (!emergenceStart.done && FracEmerg_Real >= 0.01)
 			{
-				emergence.daytime = wthr.daytime;
-				emergence.done = true;
+				emergenceStart.daytime = wthr.daytime;
+				emergenceStart.done = true;
 			}
-
+			if ((!emergenceEnd.done && emergenceStart.done) && ((abs(FracEmerg_Real - FracEmerg_Real_prev)) < 0.00001))
+			{
+				emergenceEnd.done = true;
+				cout << "emergence end by no change" << endl;
+			}
+			FracEmerg_Real_prev = FracEmerg_Real;
 			if (TTd_seed >= 350)
 			{
 				// exceed the target emergence day, kill all the plants
@@ -358,7 +363,7 @@ void RyeDevelopment::RyeDelpUpdate(const TWeather& wthr)
 
 //Z use the growth gdd (not joint gdd) to determine leaf emergence
 //Z use the gdd to joint to determine start of elongation
-	if (emergence.done)
+	if (emergenceStart.done)
 	{
 		//Z gdd since emergence
 		TTd_plant = TTd_plant + Cur_TTd;

@@ -14,8 +14,11 @@
 #define FLOAT_EQ(x,v) (((v - EPSILON) < x) && (x <( v + EPSILON)))
 #endif
 #define comma ","
-#define MINUTESPERDAY (24*60)
-
+#ifdef _WIN32
+const char* pathSymbol = "\\";
+#else
+const char* pathSymbol = "/";
+#endif
 // const a = 17.27; b = 237.7; //constant in deg C
 inline double E_sat(double T) { return 0.6105 * exp(17.27 * T / (237.7 + T)); }
 //#using <mscorlib.dll>
@@ -28,10 +31,10 @@ RyeController::RyeController(const char* filename, const char* outfile, const ch
 	weather = NULL;
 	ryePlant = NULL;
 
-	char* pch = (char*)calloc(133, sizeof(char));
-	char* next = (char*)calloc(133, sizeof(char));
-	char* ext = ".dbg";
-	char* temp = (char*)calloc(133, sizeof(char));
+	char* pch = (char*)calloc(256, sizeof(char));
+	char* next = (char*)calloc(256, sizeof(char));
+	const char* ext_dbg = ".dbg";
+	char* temp = (char*)calloc(256, sizeof(char));
 
 	//Z copy varitey input filename to the "varietyFile" buffer
 	//  strcpy_s is the thread-safe version of strcpy
@@ -40,19 +43,21 @@ RyeController::RyeController(const char* filename, const char* outfile, const ch
 	//Z copy g01 output filename to the "cropFile" buffer
 	strcpy_s(cropFile, outfile);
 
-	//Z copy g01 output filename to the "temp" buffer
-	strcpy_s(temp, 133, cropFile);
+	// find value of cropFile(G01) strip off the path and filename in order to create a dbg file
+	std::string basePath;
+	std::size_t found;
+	std::string cropFileAsString = cropFile;
+	// find last path separator and break path from file name
+	found = cropFileAsString.find_last_of(pathSymbol);
+	basePath = cropFileAsString.substr(0, found);
+	// now get filename to use as a root
+	std::string fileName = cropFileAsString.substr(found + 1);
+	std::string root = fileName.substr(0, fileName.length() - 3);
+	// create summFile and debug file  names
+	// first have to determine if we are linux or windows
+	DebugFile = basePath.append("/" + root + ext_dbg);
 
-	//Z split "temp" using deliminator "." and return the first token, the rest tokens will be assigned "next" as 2D char array, so it is a pointer to pointer to char
-	//  strtok_s is the thread-safe version of strtok
-	pch = strtok_s(temp, ".", &next);
 
-	//Z concatenate two strings, will produce "outputfilename.dbg"
-	//  TODO, update to "strcat_s()"
-	temp = strcat(pch, ext);
-
-	//Z copy debug output filename to the "DebugFile" buffer
-	strcpy_s(DebugFile, temp);
 
 	//Z copy leaf output file to the "LeafFile" buffer
 	strcpy_s(LeafFile, LFile);
@@ -193,7 +198,7 @@ void RyeController::initialize()
 
 	//Z Weather class for the whole
 	//  counting total records of weather data
-	int dim = (int)(((lastDayOfSim + 1) - firstDayOfSim) * (MINUTESPERDAY / initInfo.timeStep)); 
+	int dim = (int)(((lastDayOfSim + 1) - firstDayOfSim) * ((MINUTESPERDAY) / initInfo.timeStep)); 
 	weather = new TWeather[dim];
 
 	//Z initialize the rye plant here
@@ -212,28 +217,32 @@ void RyeController::initialize()
 			<< setw(12) << "LeafArea,"			// cm2 per representative plant
 			<< setw(12) << "GreenLfNum,"		// number per representative plant
 			<< setw(12) << "GreenLfArea,"		// cm2 per representative plant
+			<< setw(10) << "LAI,"               //Leaf Area Index
 			<< setw(12) << "TillerNum,"			// number per representative plant
 			<< setw(13) << "ShootMass,"			// grams per representative plant
 			<< setw(14) << "RootMass,"			// grams per representative plant
 			<< setw(13) << "NitroMass,"			// mg per representative plant
-			<< setw(13) << "GrossPhotosyn,"		// grams per representative plant
-			<< setw(13) << "NetPhotosyn,"		// grams per representative plant
+			<< setw(13) << "GrossPhotosyn,"		// mg biomass per representative plant per hour
+			<< setw(13) << "NetPhotosyn,"		// mg biomass per representative plant
 			<< setw(15) << "CumuTTd(plant),"
 			<< setw(15) << "CumuTTd(climate),"
 			<< setw(15) << "PltLivingFrac,"
-			<< setw(15) << "BiomassReserve,"
-			<< setw(15) << "MaintRespiration,"
+			<< setw(15) << "BiomassReserve,"     //g per plant
+			<< setw(15) << "MaintRespir (mg/p)," //mg per plant - model is grams per plant but it is multiplied by 1000
 			<< setw(15) << "NitrogenAssignment,"
 			<< setw(15) << "LeafNRelease,"
 			<< setw(15) << "SheathNRelease,"
 			<< setw(15) << "InternodeNRelease,"
 			<< setw(15) << "HourlyNitrUp,"
 			<< setw(15) << "NPool,"
-			<< setw(15) << "Sunlit_PFD,"
+			<< setw(15) << "Sunlit_PFD,"  //umol m-2 s-1
 			<< setw(15) << "Shaded_PFD,"
 			<< setw(15) << "Sunlit_A_gross,"
 			<< setw(15) << "Shaded_A_gross,"
-			<< setw(15) << "RUE"
+			<< setw(15) << "LeftOverC,"      //grams per plant
+			<< setw(10) << "IntercepPAR,"  //intercepted PAR, umol m-2 s-1
+			<< setw(9) << "Note"
+			
 			<< endl;
 	}
 }
@@ -278,7 +287,7 @@ void RyeController::outputToCropFile()
 	int mm, id, iyyy;
 	string DateForOutput;
 	double av_gs = ryePlant->get_conductance();
-	if (!ryePlant->get_develop()->is_emerge())
+	if (!ryePlant->get_develop()->is_emergenceStart())
 	{
 		av_gs = 0;
 	}
@@ -295,6 +304,60 @@ void RyeController::outputToCropFile()
 	sprintf(DateForOutputBuff, "%.2d/%.2d/%4i", mm, id, iyyy);
 	DateForOutput = DateForOutputBuff;
 #endif
+	RyeTiller* myStem= ryePlant->get_mainstem();
+	string s = "";
+
+// First handle terminal states that should override others
+if (ryePlant->get_develop()->is_dead()) { 
+    s = "Inactive"; 
+}
+else if (ryePlant->get_develop()->is_mature()) { 
+    s = "Matured"; 
+}
+// For developmental stages that can occur together, remove the else
+else {
+    // Check each state independently
+    if (ryePlant->get_develop()->is_startEnlongation()) { 
+        s += "Elong/"; 
+    }
+    if (ryePlant->get_develop()->is_singleRidge()) { 
+        s += "SRidge/"; 
+    }
+    if (ryePlant->get_develop()->is_accel()) { 
+        s += "Accel"; 
+    }
+    // Basic states that shouldn't combine with others
+    if (s.empty()) {  // Only set these if no other states were set
+		if (ryePlant->get_develop()->is_emergenceEnd()) {
+			s = "Emerge End";
+		}
+        else if (ryePlant->get_develop()->is_emergenceStart()) { 
+            s = "Emerge Start"; 
+        }
+        else if (ryePlant->get_develop()->is_germinationEnd()) { 
+            s = "Germinate End"; 
+        }
+        else if (ryePlant->get_develop()->is_germinationStart()) { 
+            s = "Germinate start"; 
+        }
+        else { 
+            s = "none"; 
+        }
+    }
+}
+
+// Optional: Remove trailing slash if present
+if (!s.empty() && s.back() == '/') {
+    s.pop_back();
+}
+
+	int accelerated=0, singleRidge=0, growing=0, mature = 0;
+	int leafNum = ryePlant->get_leafNum();
+	int i;	
+
+	// get intercepted light - use 4.6 moles light per MJ quantum flux data
+	double PAR = ryePlant->get_shaded_PFD() + ryePlant->get_sunlit_PFD();
+	double cover = 1.0 - exp(-0.79 * ryePlant->get_LAI());
 	ofstream ostr(cropFile, ios::app);
 	ostr << setiosflags(ios::right)
 		<< setiosflags(ios::fixed)
@@ -305,17 +368,18 @@ void RyeController::outputToCropFile()
 		<< setw(11) << setprecision(2) << ryePlant->get_leafArea() << comma
 		<< setw(11) << setprecision(2) << ryePlant->get_greenLfNum() << comma
 		<< setw(12) << setprecision(2) << ryePlant->get_greenLeafArea() << comma
+		<< setw(6)  << setprecision(1) << ryePlant->get_LAI()     << comma
 		<< setw(12) << setprecision(2) << ryePlant->get_tillerNum() << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_shootMass() << comma
-		<< setw(13) << setprecision(2) << RootWeightFrom2DSOIL << comma //Z it is interesting that root weight per plant from 2DSOIL is set as a component of weather
+		<< setw(13) << setprecision(4) << RootWeightFrom2DSOIL << comma //Z it is interesting that root weight per plant from 2DSOIL is set as a component of weather
 		<< setw(13) << setprecision(6) << ryePlant->get_plantTotalNitrogen() << comma
 		<< setw(13) << setprecision(4) << ryePlant->get_grossPhotosynthesis()*1000. << comma
 		<< setw(13) << setprecision(4) << ryePlant->get_netPhotosynthesis()*1000. << comma
 		<< setw(13) << setprecision(2) << ryePlant->get_develop()->get_RyeTTd().get_sum_plant() << comma
 		<< setw(13) << setprecision(2) << ryePlant->get_develop()->get_RyeTTd().get_sum_ambient() << comma
-		<< setw(13) << setprecision(2) << ryePlant->get_develop()->get_plantLivingFraction() << comma
+		<< setw(13) << setprecision(4) << ryePlant->get_develop()->get_plantLivingFraction() << comma
 		<< setw(13) << setprecision(2) << ryePlant->get_biomassReserve() << comma
-		<< setw(13) << setprecision(2) << ryePlant->get_MaintenanceRespiration() << comma
+		<< setw(13) << setprecision(6) << ryePlant->get_MaintenanceRespiration()*1000.0 << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_PltShootNitrogenAssignment() << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_LeafNitrogenRelease() << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_SheathNitrogenRelease() << comma
@@ -326,7 +390,9 @@ void RyeController::outputToCropFile()
 		<< setw(13) << setprecision(6) << ryePlant->get_shaded_PFD() << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_sunlit_A_gross() << comma
 		<< setw(13) << setprecision(6) << ryePlant->get_shaded_A_gross() << comma
-		<< setw(13) << setprecision(6) << ryePlant->get_averagedBiomassLeftover()
+		<< setw(13) << setprecision(6) << ryePlant->get_averagedBiomassLeftover() <<comma
+		<< setw(13) << setprecision(3) << PAR*cover << comma
+		<< setw(25) << setiosflags(ios::skipws) << "\"" + s + "\""
 		<< endl;
 	ostr.close();
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "gas_ex_species_param.h"
+#include "Gas_Ex_Species_Param.h"
 #include "initinfo.h"
 
 /*! \class CGasExchange 
