@@ -34,6 +34,9 @@ C SetSurfaceH --  reading hourly weather
         Endif
       if (HourlyWeather.eq.1) Call SetSurfaceH()
       if (DailyWeather.eq.1) Call SetSurfaceD()                         
+      if  (time>39427.1) then
+        iii=1
+        endif
       Call SetTDB()
       Call AutoIrrigate()
       Call Management()
@@ -42,11 +45,7 @@ C SetSurfaceH --  reading hourly weather
       Call PondedIrrigationByFlux()
 	Call TillageProcess
 c	Call Drip()
-      
-      if(time.ge.41024.373000) then
-          cauwzj=1
-      endif
-      
+           
 
       Starter=1.0D0
       Call CROP(PCRL,MSW1, NumNP,NumSol,

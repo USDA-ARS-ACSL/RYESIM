@@ -46,7 +46,7 @@ c second new comment
         Close(40)
         NumSol=1
         !Call SetAbio(ew,et,ed,0,0.,0.)
-          Call SetAbio_O2(ew,eO2,et,ed,0,0.,0.,0.,0.)    
+        Call SetAbio_O2(ew,eO2,et,ed,0,0.,0.,0.D0,0.D0)    
         dtmx(4)=1./24
        Else  ! not the first time step
 C
@@ -287,8 +287,8 @@ C calculate proportion of roots and SOM in each node
 C
       Do i=1,NumNP
        total=( RMassY(i) + RMassM(i) ) * 1.0e6 + Ch(i) + CL(i) + Cm(i) ! roots are grams per cm3 of soil convert to ug per cm3
-       RootRatioY(i)=RMassY(i)/total*1.0e6
-       RootRatioM(i)=RMassM(i)/total*1.0e6
+       RootRatioY(i)=amax1(RMassY(i)/total*1.0e6,0.0)
+       RootRatioM(i)=amax1(RMassM(i)/total*1.0e6,0.0)
        SOMMassRatio(i)=1.0-RootRatioY(i)-RootRatioM(i)  ! can lump the SOM components together as they get a common ew for now
       
       EndDo

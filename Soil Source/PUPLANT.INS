@@ -4,7 +4,7 @@
       REAL(4) SHADE,HEIGHT,LAI,AWUPS,NitroDemand,NDemandError
 	  REAL LAREAT, MaxRootDepth, InitialRootCarbo
       REAL cContentRootY,nContentRootY,cContentRootM,nContentRootM
-	  integer isGerminated, isEmerged
+	  integer isGerminated, isEmergeDone
       REAL(8) PlantLivingFraction
 ! includes variables shared with crop model	 
       Common /ShootR/   PCRL,PCRQ,PCRS,HourlyCarboUsed, ET_demand,
@@ -18,7 +18,10 @@
      !                  CumulativeNDemandError,TotalRootWeight,
      !                  InitialRootCarbo,
      !                  ConstI(2),constK(2), Cmin0(2),
-     !                  isGerminated, isEmerged,
+     !                  isGerminatedStart, 
+     !                  isGerminatedEnd,
+     !                  isEmergeStart,
+     !                  isEmergeEnd,
      !                  PlantLivingFraction
         
    

@@ -105,9 +105,12 @@ cccz        nodeArea(n)=0.0D0
       il=il+1
       Read(40,*,ERR=10) ALPM,ALPY,RTWL,RtMinWtPerUnitArea
       close(40)
-
+c DT 12/7/2018 removed element file reading     Only need to initialize root weight now
+      RTWT(:)=0         ! dry weight of root for each soil node (area)
+      
 
 cccz Assume that RTWT is node based root mass (g)
+cDT this code is only used by models that initialize root growth
       TotalRootWeight=0.0D0      
       TotalArea=0.0D0
       do n=1,NumNP
@@ -141,7 +144,7 @@ c      enddo
           yDist = (y(n)-yBSTEM)
           RVR(n)=RVRL*SQRT(xDist*xDist+yDist*yDist)   ! all the radius distance is use to calculate the radius resistance.
                                                       ! root resistance RVR: bar day g-1
-        If ((abs(xDist).lt.2).and.(abs(yDist).lt.5)) then
+        If ((abs(xDist).lt.2).and.(abs(yDist).lt.3)) then ! more shallow for rye which has a smaller seed.
            InitialRootCell(n)=1
            iCellCount=iCellCount+1
            InitialRootCellArea=InitialRootCellArea+nodeArea(n)
@@ -194,8 +197,10 @@ CYAP  No Plant = No Root Activity
       If(NShoot.eq.0) Return
 c       PDWR_TOTAL=0.0    ! for debugging purposes  AD and zhuangji  delete it
 CYAPEND
-      If ((isGerminated.eq.1).and.(RootsInitiated.eq.0)) then
+      If ((isGerminatedStart.eq.1).and.(RootsInitiated.eq.0)) then
          RootsInitiated=1
+      endif
+       If ((RootsInitiated.eq.1).and.(isEmergeDone.eq.0)) then
          InitialRootWt=InitialRootCarbo/InitialRootCellArea   ! calculates average root wt density
          ! Distribute this mass among cells with initial root distribution
          areaS=0
@@ -207,6 +212,7 @@ CYAPEND
              areaS=areaS+nodeArea(n)
            endif
          enddo
+         InitialRootCarbo=0.0 !only add carbon once per hour
       Endif
 CYAPEND
       Do n=1,NumNP
@@ -805,8 +811,8 @@ CDT    beta function, See Yin et al. (1995), Ag For Meteorol., Yan and Hunt (199
        
        t_base=5.0
        beta=1.0
-       t_opt=29.1
-       t_ceil=40.0
+       t_opt=15.1
+       t_ceil=33.0
        R_max=1.0
        
        if((t.le.t_base).or.(t.ge.t_ceil)) then
